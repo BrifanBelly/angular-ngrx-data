@@ -5,6 +5,7 @@ import { Action, ActionReducer, combineReducers, MetaReducer, ReducerManager, St
 import { EntityAction } from './actions/entity-action';
 import { EntityActionFactory } from './actions/entity-action-factory';
 
+import { DefaultDispatcherOptions } from './dispatchers/default-dispatcher-options';
 import { EntityCache } from './reducers/entity-cache';
 import { entityCacheSelectorProvider } from './selectors/entity-cache-selector';
 import { EntityCollectionServiceFactory } from './entity-services/entity-services-interfaces';
@@ -59,6 +60,7 @@ export interface NgrxDataModuleConfig {
     StoreModule // rely on Store feature providers rather than Store.forFeature()
   ],
   providers: [
+    DefaultDispatcherOptions,
     EntityActionFactory,
     entityCacheSelectorProvider,
     EntityCollectionCreator,

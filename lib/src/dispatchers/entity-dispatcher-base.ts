@@ -4,6 +4,8 @@ import { Action, createSelector, select, Store } from '@ngrx/store';
 import { Observable, of, throwError } from 'rxjs';
 import { filter, first, map, mergeMap, share, withLatestFrom } from 'rxjs/operators';
 
+import { DefaultDispatcherOptions } from './default-dispatcher-options';
+import { defaultSelectId, toUpdateFactory } from '../utils/utilities';
 import { EntityAction, EntityActionOptions } from '../actions/entity-action';
 import { EntityActionFactory } from '../actions/entity-action-factory';
 import { EntityActionGuard } from '../actions/entity-action-guard';
@@ -11,11 +13,11 @@ import { EntityCache } from '../reducers/entity-cache';
 import { EntityCacheSelector } from '../selectors/entity-cache-selector';
 import { EntityCollection } from '../reducers/entity-collection';
 import { EntityCommands } from './entity-commands';
-import { EntityDispatcher, DefaultDispatcherOptions } from './entity-dispatcher';
+import { EntityDispatcher } from './entity-dispatcher';
 import { EntityOp, OP_ERROR, OP_SUCCESS } from '../actions/entity-op';
 import { getGuidComb } from '../utils/guid-fns';
 import { IdSelector, Update, UpdateData } from '../utils/ngrx-entity-models';
-import { defaultSelectId, toUpdateFactory } from '../utils/utilities';
+import { MergeStrategy } from '../actions/merge-strategy';
 import { QueryParams } from '../dataservices/interfaces';
 
 export class EntityDispatcherBase<T> implements EntityDispatcher<T> {
@@ -43,7 +45,7 @@ export class EntityDispatcherBase<T> implements EntityDispatcher<T> {
     public selectId: IdSelector<T> = defaultSelectId,
     /**
      * Dispatcher options configure dispatcher behavior such as
-     * whether add is optimistic or pessimistic.
+     * whether add is optimistic or pessimistic by default.
      */
     public defaultDispatcherOptions: DefaultDispatcherOptions,
     /** Actions dispatched to the store after the store processed them with reducers*/
@@ -107,9 +109,7 @@ export class EntityDispatcherBase<T> implements EntityDispatcher<T> {
    */
   add(entity: T, options?: EntityActionOptions): Observable<T> {
     options = setSaveEntityActionOptions(options, this.defaultDispatcherOptions.optimisticAdd);
-    const op = options.isOptimistic ? EntityOp.SAVE_ADD_ONE_OPTIMISTIC : EntityOp.SAVE_ADD_ONE;
-
-    const action = this.createEntityAction(op, entity, options);
+    const action = this.createEntityAction(EntityOp.SAVE_ADD_ONE, entity, options);
     if (options.isOptimistic) {
       this.guard.mustBeEntity(action);
     }
@@ -139,9 +139,8 @@ export class EntityDispatcherBase<T> implements EntityDispatcher<T> {
   delete(key: number | string, options?: EntityActionOptions): Observable<number | string>;
   delete(arg: number | string | T, options?: EntityActionOptions): Observable<number | string> {
     options = setSaveEntityActionOptions(options, this.defaultDispatcherOptions.optimisticDelete);
-    const op = options.isOptimistic ? EntityOp.SAVE_DELETE_ONE_OPTIMISTIC : EntityOp.SAVE_DELETE_ONE;
     const key = this.getKey(arg);
-    const action = this.createEntityAction(op, key, options);
+    const action = this.createEntityAction(EntityOp.SAVE_DELETE_ONE, key, options);
     this.guard.mustBeKey(action);
     this.dispatch(action);
     return this.getResponseData$<number | string>(options.correlationId).pipe(map(() => key));
@@ -256,9 +255,7 @@ export class EntityDispatcherBase<T> implements EntityDispatcher<T> {
     // pass the Update<T> structure as the payload
     const update: Update<T> = this.toUpdate(entity);
     options = setSaveEntityActionOptions(options, this.defaultDispatcherOptions.optimisticUpdate);
-    const op = options.isOptimistic ? EntityOp.SAVE_ADD_ONE_OPTIMISTIC : EntityOp.SAVE_ADD_ONE;
-
-    const action = this.createEntityAction(op, entity, options);
+    const action = this.createEntityAction(EntityOp.SAVE_ADD_ONE, entity, options);
     if (options.isOptimistic) {
       this.guard.mustBeEntity(action);
     }

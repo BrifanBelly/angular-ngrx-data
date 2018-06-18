@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Action } from '@ngrx/store';
 
 import { EntityOp } from './entity-op';
-import { EntityAction, EntityActionOptions, EntityActionPayload, extractActionData } from './entity-action';
+import { EntityAction, EntityActionOptions, EntityActionPayload } from './entity-action';
 @Injectable()
 export class EntityActionFactory {
   /**
@@ -11,7 +11,7 @@ export class EntityActionFactory {
    * @param entityName Name of the entity type
    * @param entityOp Operation to perform (EntityOp)
    * @param [data] data for the operation
-   * @param options additional options
+   * @param [options] additional options
    */
   create<P = any>(entityName: string, entityOp: EntityOp, data?: P, options?: EntityActionOptions): EntityAction<P>;
 
@@ -29,7 +29,7 @@ export class EntityActionFactory {
     options?: EntityActionOptions
   ): EntityAction<P> {
     const payload: EntityActionPayload<P> =
-      typeof nameOrPayload === 'string' ? { entityName: nameOrPayload, op: entityOp, data } : nameOrPayload;
+      typeof nameOrPayload === 'string' ? { ...(options || {}), entityName: nameOrPayload, op: entityOp, data } : nameOrPayload;
 
     const { entityName, op, tag } = payload;
 

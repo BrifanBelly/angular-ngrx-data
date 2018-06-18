@@ -10,6 +10,7 @@ import { provideMockActions } from '@ngrx/effects/testing';
 import { EntityAction } from '../actions/entity-action';
 import { EntityActionFactory } from '../actions/entity-action-factory';
 import { EntityOp, OP_ERROR } from '../actions/entity-op';
+import { MergeStrategy } from '../actions/merge-strategy';
 
 import { EntityCollectionDataService, EntityDataService } from '../dataservices/entity-data.service';
 import { DataServiceError, EntityActionDataServiceError } from '../dataservices/data-service-error';
@@ -269,11 +270,11 @@ describe('EntityEffects (marble testing)', () => {
     expect(effects.persist$).toBeObservable(expected);
   });
 
-  it('should return a SAVE_ADD_ONE_OPTIMISTIC_SUCCESS with the hero on success', () => {
+  it('should return a SAVE_ADD_ONE_SUCCESS and isOptimistic with the hero on success', () => {
     const hero = { id: 1, name: 'A' } as Hero;
 
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_ADD_ONE_OPTIMISTIC, hero);
-    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_ADD_ONE_OPTIMISTIC_SUCCESS, hero);
+    const action = entityActionFactory.create('Hero', EntityOp.SAVE_ADD_ONE, hero, { isOptimistic: true });
+    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_ADD_ONE_SUCCESS, hero, { isOptimistic: true });
 
     actions = hot('-a---', { a: action });
     // delay the response 3 frames
@@ -284,24 +285,9 @@ describe('EntityEffects (marble testing)', () => {
     expect(effects.persist$).toBeObservable(expected);
   });
 
-  it('should return a SAVE_ADD_ONE_OPTIMISTIC_ERROR when service fails', () => {
-    const hero = { id: 1, name: 'A' } as Hero;
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_ADD_ONE_OPTIMISTIC, hero);
-    const httpError = { error: new Error('Test Failure'), status: 501 };
-    const completion = makeEntityErrorCompletion(action, 'PUT', httpError);
-    const error = completion.payload.error;
-
-    actions = hot('-a---', { a: action });
-    const response = cold('----#|', {}, error);
-    const expected = cold('------b', { b: completion });
-    testEntityDataService.dataServiceSpy.add.and.returnValue(response);
-
-    expect(effects.persist$).toBeObservable(expected);
-  });
-
-  it('should return a SAVE_DELETE_ONE_OPTIMISTIC_SUCCESS on success', () => {
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_DELETE_ONE_OPTIMISTIC, 42);
-    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_DELETE_ONE_OPTIMISTIC_SUCCESS);
+  it('should return a SAVE_DELETE_ONE_SUCCESS and isOptimistic with the delete id on success', () => {
+    const action = entityActionFactory.create('Hero', EntityOp.SAVE_DELETE_ONE, 42, { isOptimistic: true });
+    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_DELETE_ONE, 42, { isOptimistic: true });
 
     actions = hot('-a---', { a: action });
     // delay the response 3 frames
@@ -312,46 +298,17 @@ describe('EntityEffects (marble testing)', () => {
     expect(effects.persist$).toBeObservable(expected);
   });
 
-  it('should return a SAVE_DELETE_ONE_OPTIMISTIC_ERROR when service fails', () => {
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_DELETE_ONE_OPTIMISTIC, 42);
-    const httpError = { error: new Error('Test Failure'), status: 501 };
-    const completion = makeEntityErrorCompletion(action, 'DELETE', httpError);
-    const error = completion.payload.error;
-
-    actions = hot('-a---', { a: action });
-    const response = cold('----#|', {}, error);
-    const expected = cold('------b', { b: completion });
-    testEntityDataService.dataServiceSpy.delete.and.returnValue(response);
-
-    expect(effects.persist$).toBeObservable(expected);
-  });
-
-  it('should return a SAVE_UPDATE_ONE_OPTIMISTIC_SUCCESS with the hero on success', () => {
+  it('should return a SAVE_UPDATE_ONE_SUCCESS and isOptimistic with the hero on success', () => {
     const updateEntity = { id: 1, name: 'A' };
     const update = { id: 1, changes: updateEntity } as Update<Hero>;
 
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_UPDATE_ONE_OPTIMISTIC, update);
-    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_UPDATE_ONE_OPTIMISTIC_SUCCESS, update);
+    const action = entityActionFactory.create('Hero', EntityOp.SAVE_UPDATE_ONE, update, { isOptimistic: true });
+    const completion = entityActionFactory.create('Hero', EntityOp.SAVE_UPDATE_ONE_SUCCESS, update, { isOptimistic: true });
 
     actions = hot('-a---', { a: action });
     // delay the response 3 frames
     const response = cold('---a|', { a: updateEntity });
     const expected = cold('----b', { b: completion });
-    testEntityDataService.dataServiceSpy.update.and.returnValue(response);
-
-    expect(effects.persist$).toBeObservable(expected);
-  });
-
-  it('should return a SAVE_UPDATE_ONE_OPTIMISTIC_ERROR when service fails', () => {
-    const update = { id: 1, changes: { id: 1, name: 'A' } } as Update<Hero>;
-    const action = entityActionFactory.create('Hero', EntityOp.SAVE_UPDATE_ONE_OPTIMISTIC, update);
-    const httpError = { error: new Error('Test Failure'), status: 501 };
-    const completion = makeEntityErrorCompletion(action, 'PUT', httpError);
-    const error = completion.payload.error;
-
-    actions = hot('-a---', { a: action });
-    const response = cold('----#|', {}, error);
-    const expected = cold('------b', { b: completion });
     testEntityDataService.dataServiceSpy.update.and.returnValue(response);
 
     expect(effects.persist$).toBeObservable(expected);

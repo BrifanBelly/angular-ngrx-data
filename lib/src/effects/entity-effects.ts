@@ -21,10 +21,7 @@ export const persistOps: EntityOp[] = [
   EntityOp.QUERY_MANY,
   EntityOp.SAVE_ADD_ONE,
   EntityOp.SAVE_DELETE_ONE,
-  EntityOp.SAVE_UPDATE_ONE,
-  EntityOp.SAVE_ADD_ONE_OPTIMISTIC,
-  EntityOp.SAVE_DELETE_ONE_OPTIMISTIC,
-  EntityOp.SAVE_UPDATE_ONE_OPTIMISTIC
+  EntityOp.SAVE_UPDATE_ONE
 ];
 
 /** Token to inject a special RxJS Scheduler during marble tests. */
@@ -90,15 +87,12 @@ export class EntityEffects {
       case EntityOp.QUERY_MANY: {
         return service.getWithQuery(data);
       }
-      case EntityOp.SAVE_ADD_ONE_OPTIMISTIC:
       case EntityOp.SAVE_ADD_ONE: {
         return service.add(data);
       }
-      case EntityOp.SAVE_DELETE_ONE_OPTIMISTIC:
       case EntityOp.SAVE_DELETE_ONE: {
         return service.delete(data);
       }
-      case EntityOp.SAVE_UPDATE_ONE_OPTIMISTIC:
       case EntityOp.SAVE_UPDATE_ONE: {
         const { id, changes } = data as Update<any>; // data must be Update<T>
         return service.update(data).pipe(

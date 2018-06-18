@@ -3,6 +3,7 @@ import { EntityAdapter, createEntityAdapter } from '@ngrx/entity';
 import { EntityCollection, ChangeState, ChangeStateMap, ChangeType } from './entity-collection';
 import { createEmptyEntityCollection } from './entity-collection-creator';
 import { IdSelector, Update } from '../utils/ngrx-entity-models';
+import { MergeStrategy } from '../actions/merge-strategy';
 
 import { EntityChangeTracker } from './entity-change-tracker';
 import { DefaultEntityChangeTracker } from './default-entity-change-tracker';
@@ -50,7 +51,7 @@ describe('DefaultEntityChangeTracker', () => {
     it('should clear current tracking of the given entity', () => {
       // tslint:disable-next-line:prefer-const
       let { collection, deletedEntity, addedEntity, updatedEntity } = createTestTrackedEntities();
-      collection = tracker.commitOne(updatedEntity, collection);
+      collection = tracker.commitMany([updatedEntity], collection);
       expect(collection.changeState[updatedEntity.id]).toBeUndefined('no changes tracked for updated entity');
       expect(collection.changeState[deletedEntity.id]).toBeDefined('still tracking deleted entity');
       expect(collection.changeState[addedEntity.id]).toBeDefined('still tracking added entity');
@@ -85,7 +86,7 @@ describe('DefaultEntityChangeTracker', () => {
       let collection = tracker.trackAddOne(addedEntity, origCollection);
 
       const updatedEntity = { ...addedEntity, name: 'Double Test' };
-      collection = tracker.trackUpdateOne(updatedEntity, collection);
+      collection = tracker.trackUpdateOne(this.toUpdate(updatedEntity), collection);
       // simulate the collection update
       collection.entities[addedEntity.id] = updatedEntity;
 
@@ -127,7 +128,7 @@ describe('DefaultEntityChangeTracker', () => {
   describe('#trackDeleteOne', () => {
     it('should return a new collection with tracked "deleted" entity', () => {
       const existingEntity = getFirstExistingEntity();
-      const collection = tracker.trackDeleteOne(existingEntity, origCollection);
+      const collection = tracker.trackDeleteOne(existingEntity.id, origCollection);
       expect(collection).not.toBe(origCollection);
       const change = collection.changeState[existingEntity.id];
       expect(change).toBeDefined('tracking the entity');
@@ -166,22 +167,24 @@ describe('DefaultEntityChangeTracker', () => {
 
     it('should switch an updated entity to a deleted entity when it is removed', () => {
       const existingEntity = getFirstExistingEntity();
-      let collection = tracker.trackUpdateOne(existingEntity, origCollection);
+      const updatedEntity = this.toUpdate({ ...existingEntity, name: 'test update' });
 
-      let change = collection.changeState[existingEntity.id];
-      expect(change).toBeDefined('tracking the existing entity');
-      expectChangeType(change, ChangeType.Updated, 'updated first');
+      let collection = tracker.trackUpdateOne(this.toUpdate(updatedEntity), origCollection);
 
-      collection = tracker.trackDeleteOne(existingEntity, origCollection);
-      change = collection.changeState[existingEntity.id];
+      let change = collection.changeState[updatedEntity.id];
+      expect(change).toBeDefined('tracking the updated existing entity');
+      expectChangeType(change, ChangeType.Updated, 'updated at first');
+
+      collection = tracker.trackDeleteOne(updatedEntity.id, origCollection);
+      change = collection.changeState[updatedEntity.id];
       expect(change).toBeDefined('tracking the deleted, updated entity');
       expectChangeType(change, ChangeType.Deleted, 'after delete');
-      expect(change.originalValue).toEqual(existingEntity, 'tracking original value');
+      expect(change.originalValue).toEqual(updatedEntity, 'tracking original value');
     });
 
     it('should leave deleted entity tracked as deleted when try to update', () => {
       const existingEntity = getFirstExistingEntity();
-      let collection = tracker.trackDeleteOne(existingEntity, origCollection);
+      let collection = tracker.trackDeleteOne(existingEntity.id, origCollection);
 
       let change = collection.changeState[existingEntity.id];
       expect(change).toBeDefined('tracking the deleted entity');
@@ -191,7 +194,7 @@ describe('DefaultEntityChangeTracker', () => {
       const updatedEntity = { ...existingEntity, name: 'Double Test' };
       collection.entities[existingEntity.id] = updatedEntity;
 
-      collection = tracker.trackUpdateOne(updatedEntity, collection);
+      collection = tracker.trackUpdateOne(this.toUpdate(updatedEntity), collection);
       change = collection.changeState[updatedEntity.id];
       expect(change).toBeDefined('is still tracked as a deleted entity');
       expectChangeType(change, ChangeType.Deleted);
@@ -212,7 +215,7 @@ describe('DefaultEntityChangeTracker', () => {
   describe('#trackDeleteMany', () => {
     it('should return a new collection with tracked "deleted" entities', () => {
       const existingEntities = getSomeExistingEntities(2);
-      const collection = tracker.trackDeleteMany(existingEntities, origCollection);
+      const collection = tracker.trackDeleteMany(existingEntities.map(e => e.id), origCollection);
       expect(collection).not.toBe(origCollection);
       existingEntities.forEach((entity, ix) => {
         const change = collection.changeState[existingEntities[ix].id];
@@ -236,7 +239,8 @@ describe('DefaultEntityChangeTracker', () => {
   describe('#trackUpdateOne', () => {
     it('should return a new collection with tracked updated entity', () => {
       const existingEntity = getFirstExistingEntity();
-      const collection = tracker.trackUpdateOne(existingEntity, origCollection);
+      const updatedEntity = this.toUpdate({ ...existingEntity, name: 'test update' });
+      const collection = tracker.trackUpdateOne(updatedEntity, origCollection);
       expect(collection).not.toBe(origCollection);
       const change = collection.changeState[existingEntity.id];
       expect(change).toBeDefined('tracking the entity');
@@ -246,7 +250,8 @@ describe('DefaultEntityChangeTracker', () => {
 
     it('should return a new collection with tracked updated entity, updated by key', () => {
       const existingEntity = getFirstExistingEntity();
-      const collection = tracker.trackUpdateOne(existingEntity.id, origCollection);
+      const updatedEntity = this.toUpdate({ ...existingEntity, name: 'test update' });
+      const collection = tracker.trackUpdateOne(updatedEntity, origCollection);
       expect(collection).not.toBe(origCollection);
       const change = collection.changeState[existingEntity.id];
       expect(change).toBeDefined('tracking the entity');
@@ -256,7 +261,8 @@ describe('DefaultEntityChangeTracker', () => {
 
     it('should leave updated entity tracked as updated if try to add', () => {
       const existingEntity = getFirstExistingEntity();
-      let collection = tracker.trackUpdateOne(existingEntity, origCollection);
+      const updatedEntity = this.toUpdate({ ...existingEntity, name: 'test update' });
+      let collection = tracker.trackUpdateOne(updatedEntity, origCollection);
 
       let change = collection.changeState[existingEntity.id];
       expect(change).toBeDefined('tracking the updated entity');
@@ -279,7 +285,8 @@ describe('DefaultEntityChangeTracker', () => {
     });
 
     it('should return same collection if called with a key not found', () => {
-      const collection = tracker.trackUpdateOne('1234', origCollection);
+      const updateEntity = this.toUpdate({ id: '1234', name: 'Mr. 404' });
+      const collection = tracker.trackUpdateOne(updateEntity, origCollection);
       expect(collection).toBe(origCollection);
     });
   });
@@ -287,7 +294,8 @@ describe('DefaultEntityChangeTracker', () => {
   describe('#trackUpdateMany', () => {
     it('should return a new collection with tracked updated entities', () => {
       const existingEntities = getSomeExistingEntities(2);
-      const collection = tracker.trackUpdateMany(existingEntities, origCollection);
+      const updateEntities = existingEntities.map(e => this.toUpdate({ ...e, name: e.name + ' updated' }));
+      const collection = tracker.trackUpdateMany(updateEntities, origCollection);
       expect(collection).not.toBe(origCollection);
       existingEntities.forEach((entity, ix) => {
         const change = collection.changeState[existingEntities[ix].id];
@@ -302,8 +310,9 @@ describe('DefaultEntityChangeTracker', () => {
       expect(collection).toBe(origCollection);
     });
 
-    it('should return same collection if called with a key not found', () => {
-      const collection = tracker.trackUpdateMany(['1234', 456], origCollection);
+    it('should return same collection if called with entities whose keys are not found', () => {
+      const updateEntities = [this.toUpdate({ id: '1234', name: 'Mr. 404' }), this.toUpdate({ id: 456, name: 'Ms. 404' })];
+      const collection = tracker.trackUpdateMany(updateEntities, origCollection);
       expect(collection).toBe(origCollection);
     });
   });
@@ -374,12 +383,7 @@ describe('DefaultEntityChangeTracker', () => {
     });
 
     it('should return same collection if called with empty array', () => {
-      const collection = tracker.trackUpdateMany([], origCollection);
-      expect(collection).toBe(origCollection);
-    });
-
-    it('should return same collection if called with a key not found', () => {
-      const collection = tracker.trackUpdateMany(['1234', 456], origCollection);
+      const collection = tracker.trackUpsertMany([], origCollection);
       expect(collection).toBe(origCollection);
     });
   });
@@ -467,8 +471,8 @@ describe('DefaultEntityChangeTracker', () => {
     const updatedEntity = { ...preUpdatedEntity, name: 'Test Me' };
 
     let collection = tracker.trackAddOne(addedEntity, origCollection);
-    collection = tracker.trackDeleteOne(deletedEntity, collection);
-    collection = tracker.trackUpdateOne(preUpdatedEntity, collection);
+    collection = tracker.trackDeleteOne(deletedEntity.id, collection);
+    collection = tracker.trackUpdateOne(this.toUpdate(updatedEntity), collection);
 
     // Make the collection match these changes
     collection.ids = (collection.ids.slice(1, collection.ids.length) as number[]).concat(42);
